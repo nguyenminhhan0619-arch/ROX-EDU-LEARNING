@@ -1,7 +1,7 @@
 // ==========================================
 // 1. LINK WEB APP GOOGLE APPS SCRIPT CỦA BẠN
 // ==========================================
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxu_iTy6JcMNOQeTbEFgAQkskRD77slDxNy6o5lKtYVtS-sulszJFdgJdqwWgBkgZqW/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwWnjujDcbF1S8ogx5VvF650YysXXyD8e-wOKteLmhGHw5EnwwT8pRDFDCsga3aCK3o/exec";
 
 // Biến lưu trữ dữ liệu tải về từ Google Sheet
 let globalData = {

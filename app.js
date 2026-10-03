@@ -1,5 +1,5 @@
 // ==========================================
-// 1.https://script.google.com/macros/s/AKfycbzaey_3IBuzLl_vRhcVmrR6vpLP4J6PzPuo6ZOj9ja-8cZeKOt8cIuqDCs6r6coyu-G/exec
+// 1.https://script.google.com/macros/s/AKfycbxu_iTy6JcMNOQeTbEFgAQkskRD77slDxNy6o5lKtYVtS-sulszJFdgJdqwWgBkgZqW/exec
 // ==========================================
 const SCRIPT_URL = "DÁNS_LINK_WEB_APP_CỦA_BẠN_TẠI_BƯỚC_1_VÀO_ĐÂY";
 

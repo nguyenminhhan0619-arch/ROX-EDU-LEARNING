@@ -27,7 +27,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // ĐƯỜNG DẪN WEB APP TỪ GOOGLE APPS SCRIPT CỦA BẠN
         const DEFAULT_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxu_iTy6JcMNOQeTbEFgAQkskRD77slDxNy6o5lKtYVtS-sulszJFdgJdqwWgBkgZqW/exec";
 
         const DEFAULT_STUDENTS = [
@@ -132,7 +131,6 @@
                 return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
             };
 
-            // HÀM TẢI DỮ LIỆU ĐỒNG BỘ TỪ GOOGLE SHEET VỀ WEB APP
             const fetchCloudData = async (url, showNotification = true) => {
                 const targetUrl = url || appsScriptUrl;
                 if (!targetUrl) {
@@ -166,7 +164,6 @@
                 }
             };
 
-            // HÀM GỬI CẬP NHẬT TỪ WEB APP LÊN GOOGLE SHEET
             const syncToGoogleSheets = async (action, payloadData) => {
                 if (!appsScriptUrl) return;
                 try {
@@ -218,9 +215,15 @@
                 showToast("Đã chuyển về giao diện tra cứu học sinh!");
             };
 
+            // THUẬT TOÁN GOM NHÓM ĐÃ ĐƯỢC CHỈNH SỬA TÍNH ĐÚNG SỐ TIỀN CÒN NỢ CỦA TỪNG KHÓA
             const aggregatedStudents = useMemo(() => {
                 const map = {};
                 students.forEach(st => {
+                    const total = Number(st.totalFee) || 0;
+                    const paid = Number(st.paidFee) || 0;
+                    // Chuẩn hóa số tiền nợ thực tế của dòng
+                    const courseDebt = Math.max(0, total - paid);
+
                     if (!map[st.id]) {
                         map[st.id] = {
                             id: st.id,
@@ -233,11 +236,19 @@
                             debtFee: 0
                         };
                     }
-                    map[st.id].courses.push(st);
+                    
+                    const normalizedSt = {
+                        ...st,
+                        totalFee: total,
+                        paidFee: paid,
+                        debtFee: courseDebt
+                    };
+
+                    map[st.id].courses.push(normalizedSt);
                     map[st.id].totalCourses += 1;
-                    map[st.id].totalFee += (st.totalFee || 0);
-                    map[st.id].paidFee += (st.paidFee || 0);
-                    map[st.id].debtFee += Math.max(0, (st.totalFee || 0) - (st.paidFee || 0));
+                    map[st.id].totalFee += total;
+                    map[st.id].paidFee += paid;
+                    map[st.id].debtFee += courseDebt;
                 });
                 return Object.values(map);
             }, [students]);
@@ -399,7 +410,7 @@
             };
 
             const getDynamicVietQR = (stList, studentInfo) => {
-                const totalDebt = stList.reduce((sum, s) => sum + Math.max(0, (s.totalFee || 0) - (s.paidFee || 0)), 0);
+                const totalDebt = stList.reduce((sum, s) => sum + Math.max(0, (Number(s.totalFee) || 0) - (Number(s.paidFee) || 0)), 0);
                 if (totalDebt <= 0) return null;
                 const memo = `HP ${studentInfo.id} ${studentInfo.name}`;
                 return `https://img.vietqr.io/image/TCB-19073843007013-compact2.png?amount=${totalDebt}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent("NGUYEN MINH HAN")}`;
@@ -666,7 +677,7 @@
                                     <div className="space-y-4">
                                         {lookupResult.length > 0 ? (() => {
                                             const first = lookupResult[0];
-                                            const totalDebt = lookupResult.reduce((sum, s) => sum + Math.max(0, (s.totalFee || 0) - (s.paidFee || 0)), 0);
+                                            const totalDebt = lookupResult.reduce((sum, s) => sum + Math.max(0, (Number(s.totalFee) || 0) - (Number(s.paidFee) || 0)), 0);
                                             const qrCodeUrl = getDynamicVietQR(lookupResult, first);
 
                                             return (
@@ -686,7 +697,7 @@
                                                     <div className="space-y-3">
                                                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Chi tiết khóa học:</h4>
                                                         {lookupResult.map((st, idx) => {
-                                                            const debt = Math.max(0, (st.totalFee || 0) - (st.paidFee || 0));
+                                                            const debt = Math.max(0, (Number(st.totalFee) || 0) - (Number(st.paidFee) || 0));
                                                             const isDone = debt <= 0;
                                                             return (
                                                                 <div key={idx} className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -739,15 +750,15 @@
                                         <p className="text-2xl font-extrabold text-slate-800 mt-1">{generalStats.totalStudents} em</p>
                                     </div>
                                     <div className="glass-card rounded-2xl p-4 shadow-sm border border-rose-100">
-                                        <p className="text-[11px] font-bold uppercase text-slate-500">Đã Hoàn Thành</p>
+                                        <p className="text-[11px] font-bold uppercase text-slate-500">Đã Hoàn Thành Cả Lớp</p>
                                         <p className="text-2xl font-extrabold text-emerald-600 mt-1">{generalStats.paidStudents} em</p>
                                     </div>
                                     <div className="glass-card rounded-2xl p-4 shadow-sm border border-rose-100 sm:col-span-2">
-                                        <p className="text-[11px] font-bold uppercase text-slate-500 mb-1">Số Em Chưa Đóng Theo Lớp:</p>
+                                        <p className="text-[11px] font-bold uppercase text-slate-500 mb-1">Số Em Còn Nợ Theo Lớp:</p>
                                         <div className="flex flex-wrap gap-2">
                                             {classStats.map(c => (
                                                 <span key={c.className} className="px-2.5 py-1 bg-rose-100 text-rose-800 rounded-lg text-xs font-bold">
-                                                    Lớp {c.className}: <b className="text-rose-700">{c.unpaidInClass}</b>/{c.totalInClass} chưa đóng
+                                                    Lớp {c.className}: <b className="text-rose-700">{c.unpaidInClass}</b>/{c.totalInClass} còn nợ
                                                 </span>
                                             ))}
                                         </div>
@@ -792,7 +803,7 @@
                                             </button>
                                             {classStats.map(c => (
                                                 <button key={c.className} onClick={() => setSelectedClass(c.className)} className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition ${selectedClass === c.className ? 'bg-red-600 text-white border-red-700 shadow-sm' : 'bg-white text-slate-700 border-rose-200'}`}>
-                                                    Lớp {c.className} ({c.unpaidInClass} chưa đóng)
+                                                    Lớp {c.className} ({c.unpaidInClass} còn nợ)
                                                 </button>
                                             ))}
                                         </div>
@@ -1004,7 +1015,7 @@
                                 <div className="space-y-4">
                                     <h4 className="text-xs font-bold uppercase text-slate-600">Khóa học & Cập nhật học phí:</h4>
                                     {currentDetailStudent.courses.map((st, idx) => {
-                                        const debt = Math.max(0, (st.totalFee || 0) - (st.paidFee || 0));
+                                        const debt = Math.max(0, (Number(st.totalFee) || 0) - (Number(st.paidFee) || 0));
                                         return (
                                             <div key={idx} className="p-4 bg-slate-50 rounded-2xl border space-y-2">
                                                 <div className="flex justify-between items-center">

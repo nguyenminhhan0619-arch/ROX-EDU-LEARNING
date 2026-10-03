@@ -49,17 +49,17 @@
             const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
 
             const [students, setStudents] = useState(() => {
-                const saved = localStorage.getItem('ROX_STUDENTS_DATA_V8');
+                const saved = localStorage.getItem('ROX_STUDENTS_DATA_V9');
                 return saved ? JSON.parse(saved) : DEFAULT_STUDENTS;
             });
 
             const [customCourses, setCustomCourses] = useState(() => {
-                const saved = localStorage.getItem('ROX_CUSTOM_COURSES_V8');
+                const saved = localStorage.getItem('ROX_CUSTOM_COURSES_V9');
                 return saved ? JSON.parse(saved) : [];
             });
 
             const [attendanceRecords, setAttendanceRecords] = useState(() => {
-                const saved = localStorage.getItem('ROX_ATTENDANCE_DATA_V8');
+                const saved = localStorage.getItem('ROX_ATTENDANCE_DATA_V9');
                 return saved ? JSON.parse(saved) : {};
             });
 
@@ -108,15 +108,15 @@
             const [isAppsScriptModalOpen, setIsAppsScriptModalOpen] = useState(false);
 
             useEffect(() => {
-                localStorage.setItem('ROX_STUDENTS_DATA_V8', JSON.stringify(students));
+                localStorage.setItem('ROX_STUDENTS_DATA_V9', JSON.stringify(students));
             }, [students]);
 
             useEffect(() => {
-                localStorage.setItem('ROX_CUSTOM_COURSES_V8', JSON.stringify(customCourses));
+                localStorage.setItem('ROX_CUSTOM_COURSES_V9', JSON.stringify(customCourses));
             }, [customCourses]);
 
             useEffect(() => {
-                localStorage.setItem('ROX_ATTENDANCE_DATA_V8', JSON.stringify(attendanceRecords));
+                localStorage.setItem('ROX_ATTENDANCE_DATA_V9', JSON.stringify(attendanceRecords));
             }, [attendanceRecords]);
 
             useEffect(() => {
@@ -132,6 +132,7 @@
                 return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
             };
 
+            // HÀM TẢI DỮ LIỆU ĐÃ ĐƯỢC CHUẨN HÓA SỐ TIỀN & TRẠNG THÁI CHÍNH XÁC
             const fetchCloudData = async (url, showNotification = true) => {
                 const targetUrl = url || appsScriptUrl;
                 if (!targetUrl) {
@@ -150,15 +151,33 @@
                     if (data && typeof data === 'object') {
                         if (Array.isArray(data.students) && data.students.length > 0) {
                             const normalized = data.students.map(st => {
-                                const total = Number(st.totalFee) || 0;
-                                const paid = Number(st.paidFee) || 0;
-                                const debt = Math.max(0, total - paid);
+                                // Xử lý sạch định dạng số tiền từ Sheet
+                                const cleanNum = (val) => {
+                                    if (!val) return 0;
+                                    const str = String(val).replace(/[^0-9]/g, '');
+                                    return Number(str) || 0;
+                                };
+
+                                const total = cleanNum(st.totalFee) || 650000;
+                                const paid = cleanNum(st.paidFee);
+                                const statusStr = String(st.status || '').trim().toLowerCase();
+
+                                // Nếu cột status ghi "đã hoàn thành" hoặc "đã đóng" hoặc paid >= total thì xác nhận đã hoàn thành
+                                const isDone = statusStr.includes('hoàn thành') || statusStr.includes('đã đóng') || (paid >= total && total > 0);
+
+                                const finalPaid = isDone ? (paid > 0 ? paid : total) : paid;
+                                const finalDebt = Math.max(0, total - finalPaid);
+
                                 return {
                                     ...st,
+                                    id: String(st.id || '').trim(),
+                                    name: String(st.name || '').trim(),
+                                    course: String(st.course || '').trim(),
+                                    class: String(st.class || '').trim(),
                                     totalFee: total,
-                                    paidFee: paid,
-                                    debtFee: debt,
-                                    status: debt <= 0 ? "Đã hoàn thành" : "Chưa đóng"
+                                    paidFee: finalPaid,
+                                    debtFee: finalDebt,
+                                    status: finalDebt <= 0 ? "Đã hoàn thành" : "Chưa đóng"
                                 };
                             });
                             setStudents(normalized);
@@ -382,6 +401,7 @@
                 });
             }, [aggregatedStudents, searchTerm, selectedClass, statusFilter]);
 
+            // CẬP NHẬT TRẠNG THÁI ĐÓNG TIỀN THEO TỪNG KHÓA
             const handleRecordPayment = (e) => {
                 e.preventDefault();
                 const amount = Number(payAmount);
@@ -408,26 +428,32 @@
                 setStudents(prev => prev.map(s => (s.id === payingRecord.id && s.course === payingRecord.course) ? updatedRecord : s));
                 syncToGoogleSheets('UPDATE_PAYMENT', updatedRecord);
 
-                showToast(newPaid === 0 ? `Đã đặt lại trạng thái Chưa đóng cho ${payingRecord.name} (${payingRecord.course})!` : `Đã cập nhật thu ${formatVND(newPaid)} cho ${payingRecord.name}!`);
+                showToast(newPaid === 0 ? `Đã đổi trạng thái CHƯA ĐÓNG cho ${payingRecord.name} (${payingRecord.course})!` : `Đã đổi trạng thái ĐÃ ĐÓNG cho ${payingRecord.name} (${payingRecord.course})!`);
                 setIsPayModalOpen(false);
             };
 
-            const handleResetPaymentToUnpaid = (stRecord) => {
-                if (confirm(`Bạn có chắc muốn đặt lại khóa "${stRecord.course}" của học sinh ${stRecord.name} về trạng thái CHƯA ĐÓNG không?`)) {
-                    const totalFee = Number(stRecord.totalFee) || 650000;
-                    const updatedRecord = {
-                        ...stRecord,
-                        paidFee: 0,
-                        debtFee: totalFee,
-                        status: 'Chưa đóng',
-                        payDate: '',
-                        payMethod: ''
-                    };
+            // NÚT ĐỔI TRẠNG THÁI TRỰC TIẾP TỪ ĐÃ ĐÓNG ↔ CHƯA ĐÓNG
+            const handleTogglePaymentStatus = (stRecord) => {
+                const totalFee = Number(stRecord.totalFee) || 650000;
+                const currentlyPaid = (stRecord.debtFee <= 0);
+                
+                const newPaid = currentlyPaid ? 0 : totalFee;
+                const newDebt = currentlyPaid ? totalFee : 0;
+                const newStatus = currentlyPaid ? 'Chưa đóng' : 'Đã hoàn thành';
+                const newPayDate = currentlyPaid ? '' : new Date().toISOString().split('T')[0];
 
-                    setStudents(prev => prev.map(s => (s.id === stRecord.id && s.course === stRecord.course) ? updatedRecord : s));
-                    syncToGoogleSheets('UPDATE_PAYMENT', updatedRecord);
-                    showToast(`Đã chuyển khóa ${stRecord.course} về Chưa đóng!`);
-                }
+                const updatedRecord = {
+                    ...stRecord,
+                    paidFee: newPaid,
+                    debtFee: newDebt,
+                    status: newStatus,
+                    payDate: newPayDate,
+                    payMethod: currentlyPaid ? '' : 'Chuyển khoản'
+                };
+
+                setStudents(prev => prev.map(s => (s.id === stRecord.id && s.course === stRecord.course) ? updatedRecord : s));
+                syncToGoogleSheets('UPDATE_PAYMENT', updatedRecord);
+                showToast(`Đã chuyển ${stRecord.name} (${stRecord.course}) sang: ${newStatus.toUpperCase()}!`);
             };
 
             const handleStudentLookup = (e) => {
@@ -1033,6 +1059,7 @@
                         ) : null}
                     </main>
 
+                    {/* MODAL CHI TIẾT VÀ BẤM NÚT ĐỔI TRẠNG THÁI TRỰC TIẾP */}
                     {isDetailModalOpen && currentDetailStudent && (
                         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 space-y-4 animate-scaleUp max-h-[90vh] overflow-y-auto">
@@ -1069,22 +1096,13 @@
                                                     </div>
                                                     
                                                     <div className="flex items-center space-x-2 self-end sm:self-auto">
-                                                        <button onClick={() => { setPayingRecord(st); setPayAmount(st.paidFee || st.totalFee); setIsPayModalOpen(true); }} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center space-x-1">
-                                                            <i className="fa-solid fa-pen"></i>
-                                                            <span>Chỉnh sửa</span>
+                                                        <button 
+                                                            onClick={() => handleTogglePaymentStatus(st)} 
+                                                            className={`px-3 py-1.5 font-bold rounded-xl text-xs shadow-sm flex items-center space-x-1 ${isPaid ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                                                        >
+                                                            <i className={`fa-solid ${isPaid ? 'fa-rotate-left' : 'fa-check'}`}></i>
+                                                            <span>{isPaid ? 'Chuyển thành CHƯA ĐÓNG' : 'Chuyển thành ĐÃ ĐÓNG'}</span>
                                                         </button>
-
-                                                        {isPaid ? (
-                                                            <button onClick={() => handleResetPaymentToUnpaid(st)} className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-xl text-xs shadow-sm border border-rose-300 flex items-center space-x-1" title="Chuyển về Chưa đóng">
-                                                                <i className="fa-solid fa-rotate-left"></i>
-                                                                <span>Đặt lại: Chưa đóng</span>
-                                                            </button>
-                                                        ) : (
-                                                            <button onClick={() => { setPayingRecord(st); setPayAmount(st.totalFee); setIsPayModalOpen(true); }} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center space-x-1">
-                                                                <i className="fa-solid fa-money-bill-wave"></i>
-                                                                <span>Thu tiền</span>
-                                                            </button>
-                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1132,7 +1150,7 @@
                                     </div>
                                     <div>
                                         <label className="block font-semibold mb-1">Ghi chú</label>
-                                        <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Ghi chú..." className="w-full px-3 py-2 border rounded-xl" />
+                                        <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Ghi chú..." className="w-full px-3 py-1 text-xs border rounded-xl" />
                                     </div>
                                     <div className="flex justify-end space-x-2 pt-2">
                                         <button type="button" onClick={() => setIsPayModalOpen(false)} className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold">Hủy</button>

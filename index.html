@@ -27,6 +27,9 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
+        // ĐƯỜNG DẪN WEB APP TỪ GOOGLE APPS SCRIPT CỦA BẠN
+        const DEFAULT_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxu_iTy6JcMNOQeTbEFgAQkskRD77slDxNy6o5lKtYVtS-sulszJFdgJdqwWgBkgZqW/exec";
+
         const DEFAULT_STUDENTS = [
             { id: "HS001", name: "Nguyễn Xuân Kim Ngân", class: "12A", course: "L12A-Khóa 1", schedule: "16/06/2026 - 09/07/2026 (8 buổi)", totalFee: 650000, paidFee: 0, debtFee: 650000, status: "Chưa đóng", payDate: "", payMethod: "" },
             { id: "HS002", name: "Võ Hà Quỳnh Trâm", class: "12A", course: "L12A-Khóa 1", schedule: "16/06/2026 - 09/07/2026 (8 buổi)", totalFee: 650000, paidFee: 650000, debtFee: 0, status: "Đã hoàn thành", payDate: "2026-07-16", payMethod: "Chuyển khoản" },
@@ -65,7 +68,7 @@
                 return saved ? JSON.parse(saved) : {};
             });
 
-            const [appsScriptUrl, setAppsScriptUrl] = useState(() => localStorage.getItem('ROX_APPS_SCRIPT_URL') || '');
+            const [appsScriptUrl, setAppsScriptUrl] = useState(() => localStorage.getItem('ROX_APPS_SCRIPT_URL') || DEFAULT_APPS_SCRIPT_URL);
             const [isLoadingCloud, setIsLoadingCloud] = useState(false);
             const [toast, setToast] = useState(null);
 
@@ -129,6 +132,7 @@
                 return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
             };
 
+            // HÀM TẢI DỮ LIỆU ĐỒNG BỘ TỪ GOOGLE SHEET VỀ WEB APP
             const fetchCloudData = async (url, showNotification = true) => {
                 const targetUrl = url || appsScriptUrl;
                 if (!targetUrl) {
@@ -138,12 +142,21 @@
 
                 setIsLoadingCloud(true);
                 try {
-                    const response = await fetch(targetUrl);
+                    const response = await fetch(targetUrl, {
+                        method: 'GET',
+                        redirect: 'follow'
+                    });
                     const data = await response.json();
-                    if (Array.isArray(data) && data.length > 0) {
-                        setStudents(data);
+                    
+                    if (data && typeof data === 'object') {
+                        if (Array.isArray(data.students) && data.students.length > 0) {
+                            setStudents(data.students);
+                        }
+                        if (data.attendance && typeof data.attendance === 'object') {
+                            setAttendanceRecords(data.attendance);
+                        }
                         localStorage.setItem('ROX_APPS_SCRIPT_URL', targetUrl);
-                        if (showNotification) showToast(`Đã đồng bộ ${data.length} dòng dữ liệu từ Google Sheets!`);
+                        if (showNotification) showToast("Đã đồng bộ dữ liệu Học phí & Điểm danh từ Google Sheets!");
                     }
                 } catch (error) {
                     console.error("Lỗi tải:", error);
@@ -153,6 +166,7 @@
                 }
             };
 
+            // HÀM GỬI CẬP NHẬT TỪ WEB APP LÊN GOOGLE SHEET
             const syncToGoogleSheets = async (action, payloadData) => {
                 if (!appsScriptUrl) return;
                 try {
@@ -168,8 +182,7 @@
             };
 
             useEffect(() => {
-                const savedUrl = localStorage.getItem('ROX_APPS_SCRIPT_URL');
-                if (savedUrl) fetchCloudData(savedUrl, false);
+                fetchCloudData(appsScriptUrl, false);
             }, []);
 
             const handleTeacherLogin = (e) => {
@@ -1178,8 +1191,6 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
-  </script>
-
-<script src="app.js"></script>
+    </script>
 </body>
 </html>

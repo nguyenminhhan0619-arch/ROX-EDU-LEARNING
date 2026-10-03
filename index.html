@@ -30,14 +30,12 @@
         const DEFAULT_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxu_iTy6JcMNOQeTbEFgAQkskRD77slDxNy6o5lKtYVtS-sulszJFdgJdqwWgBkgZqW/exec";
 
         const DEFAULT_STUDENTS = [
-            { id: "HS001", name: "Nguyễn Xuân Kim Ngân", class: "12A", course: "L12A-Khóa 1", schedule: "16/06/2026 - 09/07/2026 (8 buổi)", totalFee: 650000, paidFee: 0, debtFee: 650000, status: "Chưa đóng", payDate: "", payMethod: "" },
+            { id: "HS001", name: "Nguyễn Xuân Kim Ngân", class: "12A", course: "L12A-Khóa 1", schedule: "16/06/2026 - 09/07/2026 (8 buổi)", totalFee: 650000, paidFee: 650000, debtFee: 0, status: "Đã hoàn thành", payDate: "2026-07-16", payMethod: "Chuyển khoản" },
+            { id: "HS001", name: "Nguyễn Xuân Kim Ngân", class: "12A", course: "L12A-Khóa 2", schedule: "16/07/2026 - 09/08/2026 (8 buổi)", totalFee: 650000, paidFee: 0, debtFee: 650000, status: "Chưa đóng", payDate: "", payMethod: "" },
             { id: "HS002", name: "Võ Hà Quỳnh Trâm", class: "12A", course: "L12A-Khóa 1", schedule: "16/06/2026 - 09/07/2026 (8 buổi)", totalFee: 650000, paidFee: 650000, debtFee: 0, status: "Đã hoàn thành", payDate: "2026-07-16", payMethod: "Chuyển khoản" },
             { id: "HS035", name: "Nguyễn Khánh An", class: "10", course: "L10-Khóa 1", schedule: "16/08/2026 - 14/09/2026 (8 buổi)", totalFee: 650000, paidFee: 650000, debtFee: 0, status: "Đã hoàn thành", payDate: "", payMethod: "" },
             { id: "HS040", name: "Gia Hân", class: "12B", course: "L12B-Khóa 1", schedule: "05/07/2026 - 02/08/2026 (4 buổi)", totalFee: 650000, paidFee: 650000, debtFee: 0, status: "Đã hoàn thành", payDate: "2026-07-10", payMethod: "Chuyển khoản" }
         ];
-
-        // Hàm hỗ trợ tạo unique key định danh đúng học sinh theo từng khóa
-        const getStudentCourseKey = (st) => `${(st.id || '').trim().toUpperCase()}__${(st.course || '').trim()}`;
 
         function App() {
             const [viewMode, setViewMode] = useState('lookup'); 
@@ -66,7 +64,7 @@
             });
 
             const [sessionCustomDates, setSessionCustomDates] = useState(() => {
-                const saved = localStorage.getItem('ROX_SESSION_DATES_V2');
+                const saved = localStorage.getItem('ROX_SESSION_DATES_V1');
                 return saved ? JSON.parse(saved) : {};
             });
 
@@ -82,10 +80,8 @@
             const [lookupResult, setLookupResult] = useState([]);
             const [hasSearched, setHasSearched] = useState(false);
 
-            // Modal Thu tiền & Sửa / Reset
             const [isPayModalOpen, setIsPayModalOpen] = useState(false);
             const [payingRecord, setPayingRecord] = useState(null);
-            const [payActionType, setPayActionType] = useState('add'); // 'add' (thu thêm) hoặc 'set' (ghi đè trực tiếp)
             const [payAmount, setPayAmount] = useState('');
             const [payDateInput, setPayDateInput] = useState(() => new Date().toISOString().split('T')[0]);
             const [payMethodSelect, setPayMethodSelect] = useState('Chuyển khoản');
@@ -124,7 +120,7 @@
             }, [attendanceRecords]);
 
             useEffect(() => {
-                localStorage.setItem('ROX_SESSION_DATES_V2', JSON.stringify(sessionCustomDates));
+                localStorage.setItem('ROX_SESSION_DATES_V1', JSON.stringify(sessionCustomDates));
             }, [sessionCustomDates]);
 
             const showToast = (message, type = 'success') => {
@@ -136,7 +132,6 @@
                 return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
             };
 
-            // Đồng bộ dữ liệu đám mây: Map chính xác theo (id, course)
             const fetchCloudData = async (url, showNotification = true) => {
                 const targetUrl = url || appsScriptUrl;
                 if (!targetUrl) {
@@ -154,7 +149,6 @@
                     
                     if (data && typeof data === 'object') {
                         if (Array.isArray(data.students) && data.students.length > 0) {
-                            // Chuẩn hóa dữ liệu nợ và status từng dòng theo id + course
                             const normalized = data.students.map(st => {
                                 const total = Number(st.totalFee) || 0;
                                 const paid = Number(st.paidFee) || 0;
@@ -164,7 +158,7 @@
                                     totalFee: total,
                                     paidFee: paid,
                                     debtFee: debt,
-                                    status: debt <= 0 ? 'Đã hoàn thành' : 'Chưa đóng'
+                                    status: debt <= 0 ? "Đã hoàn thành" : "Chưa đóng"
                                 };
                             });
                             setStudents(normalized);
@@ -173,7 +167,7 @@
                             setAttendanceRecords(data.attendance);
                         }
                         localStorage.setItem('ROX_APPS_SCRIPT_URL', targetUrl);
-                        if (showNotification) showToast("Đã đồng bộ chuẩn xác từng khóa từ Google Sheets!");
+                        if (showNotification) showToast("Đã đồng bộ dữ liệu Học phí & Điểm danh từ Google Sheets!");
                     }
                 } catch (error) {
                     console.error("Lỗi tải:", error);
@@ -234,7 +228,6 @@
                 showToast("Đã chuyển về giao diện tra cứu học sinh!");
             };
 
-            // Gom nhóm học sinh cho màn hình Quản lý - giữ nguyên danh sách khóa học riêng lẻ
             const aggregatedStudents = useMemo(() => {
                 const map = {};
                 students.forEach(st => {
@@ -260,7 +253,7 @@
                         totalFee: total,
                         paidFee: paid,
                         debtFee: courseDebt,
-                        status: courseDebt <= 0 ? 'Đã hoàn thành' : 'Chưa đóng'
+                        status: courseDebt <= 0 ? "Đã hoàn thành" : "Chưa đóng"
                     };
 
                     map[st.id].courses.push(normalizedSt);
@@ -389,71 +382,52 @@
                 });
             }, [aggregatedStudents, searchTerm, selectedClass, statusFilter]);
 
-            // Xử lý Cập nhật đóng tiền / Hoàn tác / Ghi đè chính xác theo id + course
             const handleRecordPayment = (e) => {
                 e.preventDefault();
                 const amount = Number(payAmount);
                 if (isNaN(amount) || amount < 0) {
-                    showToast("Số tiền không hợp lệ", "error");
+                    showToast("Số tiền không hợp lệ!", "error");
                     return;
                 }
 
-                let newPaid = 0;
-                if (payActionType === 'add') {
-                    newPaid = (payingRecord.paidFee || 0) + amount;
-                } else {
-                    newPaid = amount; // Đặt lại số tiền đã đóng trực tiếp
-                }
-
-                const total = Number(payingRecord.totalFee) || 0;
-                const newDebt = Math.max(0, total - newPaid);
+                const totalFee = Number(payingRecord.totalFee) || 650000;
+                const newPaid = Math.min(totalFee, amount);
+                const newDebt = Math.max(0, totalFee - newPaid);
                 const newStatus = newDebt <= 0 ? 'Đã hoàn thành' : 'Chưa đóng';
-                const selectedDate = payDateInput || new Date().toISOString().split('T')[0];
+                const selectedDate = newPaid > 0 ? (payDateInput || new Date().toISOString().split('T')[0]) : '';
 
                 const updatedRecord = {
                     ...payingRecord,
                     paidFee: newPaid,
                     debtFee: newDebt,
                     status: newStatus,
-                    payDate: newPaid > 0 ? selectedDate : '',
-                    payMethod: newPaid > 0 ? (payMethodSelect || 'Chuyển khoản') : '',
-                    payNote: payNote || ''
+                    payDate: selectedDate,
+                    payMethod: newPaid > 0 ? (payMethodSelect || 'Chuyển khoản') : ''
                 };
 
-                // Cập nhật đúng khóa học của học sinh đó
-                setStudents(prev => prev.map(s => 
-                    getStudentCourseKey(s) === getStudentCourseKey(payingRecord) ? updatedRecord : s
-                ));
-
+                setStudents(prev => prev.map(s => (s.id === payingRecord.id && s.course === payingRecord.course) ? updatedRecord : s));
                 syncToGoogleSheets('UPDATE_PAYMENT', updatedRecord);
 
-                showToast(`Đã cập nhật ${payingRecord.course} cho ${payingRecord.name}!`);
+                showToast(newPaid === 0 ? `Đã đặt lại trạng thái Chưa đóng cho ${payingRecord.name} (${payingRecord.course})!` : `Đã cập nhật thu ${formatVND(newPaid)} cho ${payingRecord.name}!`);
                 setIsPayModalOpen(false);
             };
 
-            // Hàm Reset trạng thái về "Chưa đóng" (Hoàn tác)
-            const handleResetPayment = (record) => {
-                if (!confirm(`Xác nhận HOÀN TÁC học phí khóa "${record.course}" của "${record.name}" về CHƯA ĐÓNG (0đ)?`)) {
-                    return;
+            const handleResetPaymentToUnpaid = (stRecord) => {
+                if (confirm(`Bạn có chắc muốn đặt lại khóa "${stRecord.course}" của học sinh ${stRecord.name} về trạng thái CHƯA ĐÓNG không?`)) {
+                    const totalFee = Number(stRecord.totalFee) || 650000;
+                    const updatedRecord = {
+                        ...stRecord,
+                        paidFee: 0,
+                        debtFee: totalFee,
+                        status: 'Chưa đóng',
+                        payDate: '',
+                        payMethod: ''
+                    };
+
+                    setStudents(prev => prev.map(s => (s.id === stRecord.id && s.course === stRecord.course) ? updatedRecord : s));
+                    syncToGoogleSheets('UPDATE_PAYMENT', updatedRecord);
+                    showToast(`Đã chuyển khóa ${stRecord.course} về Chưa đóng!`);
                 }
-
-                const total = Number(record.totalFee) || 650000;
-                const updatedRecord = {
-                    ...record,
-                    paidFee: 0,
-                    debtFee: total,
-                    status: 'Chưa đóng',
-                    payDate: '',
-                    payMethod: '',
-                    payNote: 'Đã hoàn tác/reset'
-                };
-
-                setStudents(prev => prev.map(s => 
-                    getStudentCourseKey(s) === getStudentCourseKey(record) ? updatedRecord : s
-                ));
-
-                syncToGoogleSheets('UPDATE_PAYMENT', updatedRecord);
-                showToast(`Đã hoàn tác ${record.name} (${record.course}) về Chưa đóng!`);
             };
 
             const handleStudentLookup = (e) => {
@@ -588,7 +562,7 @@
             };
 
             const handleDeleteStudent = (studentId, studentName) => {
-                if (confirm(`Bạn có chắc chắn muốn xóa học sinh "${studentName}" (${studentId}) khỏi hệ thống và Sheet không?`)) {
+                if (confirm(`Bạn có chắc chắn muốn xóa học sinh "${studentName}" (${studentId}) khỏi hệ thống không?`)) {
                     setStudents(prev => prev.filter(st => st.id !== studentId));
                     syncToGoogleSheets('DELETE_STUDENT', { id: studentId });
                     setIsDetailModalOpen(false);
@@ -641,7 +615,7 @@
                                 </div>
                                 <div>
                                     <h1 className="font-extrabold text-lg leading-tight tracking-wide">ROX Edu Fee</h1>
-                                    <p className="text-xs text-rose-100/80 font-medium">Quản lý & Điểm danh chuẩn hóa từng khóa</p>
+                                    <p className="text-xs text-rose-100/80 font-medium">Hệ thống đồng bộ 2 chiều Web & Sheets</p>
                                 </div>
                             </div>
 
@@ -682,7 +656,7 @@
                                     <i className="fa-solid fa-file-excel"></i>
                                 </button>
 
-                                <button onClick={() => fetchCloudData(appsScriptUrl, true)} disabled={isLoadingCloud} className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm" title="Đồng bộ 2 chiều">
+                                <button onClick={() => fetchCloudData(appsScriptUrl, true)} disabled={isLoadingCloud} className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm">
                                     <i className={`fa-solid fa-rotate ${isLoadingCloud ? 'animate-spin' : ''}`}></i>
                                 </button>
 
@@ -718,7 +692,7 @@
                                         <i className="fa-solid fa-magnifying-glass"></i>
                                     </div>
                                     <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">Tra Cứu Học Phí ROX Edu</h2>
-                                    <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto font-medium">Nhập <b>Mã Học Sinh</b> hoặc <b>Họ tên</b> để tra cứu học phí theo từng khóa học chính xác.</p>
+                                    <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto font-medium">Nhập <b>Mã Học Sinh</b> hoặc <b>Họ tên</b> để tra cứu học phí.</p>
 
                                     <form onSubmit={handleStudentLookup} className="mt-8 flex flex-col sm:flex-row gap-2.5 max-w-md mx-auto">
                                         <input type="text" placeholder="Mã HS (VD: HS035) hoặc tên..." value={lookupQuery} onChange={(e) => setLookupQuery(e.target.value)} className="flex-1 px-4 py-3.5 rounded-2xl bg-slate-50 border border-rose-200 focus:ring-2 focus:ring-red-500 text-sm font-semibold shadow-sm focus:outline-none" required />
@@ -751,7 +725,7 @@
                                                     </div>
 
                                                     <div className="space-y-3">
-                                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Chi tiết trạng thái từng khóa:</h4>
+                                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Chi tiết các khóa học:</h4>
                                                         {lookupResult.map((st, idx) => {
                                                             const debt = Math.max(0, (Number(st.totalFee) || 0) - (Number(st.paidFee) || 0));
                                                             const isDone = debt <= 0;
@@ -793,7 +767,7 @@
                                                 </div>
                                             );
                                         })() : (
-                                            <div className="glass-card rounded-2xl p-6 text-center text-slate-500 text-sm">Không tìm thấy thông tin học sinh.</div>
+                                            <div className="glass-card rounded-2xl p-6 text-center text-slate-500 text-sm">Không tìm thấy thông tin.</div>
                                         )}
                                     </div>
                                 )}
@@ -806,7 +780,7 @@
                                         <p className="text-2xl font-extrabold text-slate-800 mt-1">{generalStats.totalStudents} em</p>
                                     </div>
                                     <div className="glass-card rounded-2xl p-4 shadow-sm border border-rose-100">
-                                        <p className="text-[11px] font-bold uppercase text-slate-500">Đã Hoàn Thành Cả Lớp</p>
+                                        <p className="text-[11px] font-bold uppercase text-slate-500">Đã Đóng Hết Các Khóa</p>
                                         <p className="text-2xl font-extrabold text-emerald-600 mt-1">{generalStats.paidStudents} em</p>
                                     </div>
                                     <div className="glass-card rounded-2xl p-4 shadow-sm border border-rose-100 sm:col-span-2">
@@ -832,7 +806,7 @@
                                                     </span>
                                                     <input 
                                                         type="text" 
-                                                        placeholder="Nhập tên học sinh hoặc mã HS để tìm ngay..." 
+                                                        placeholder="Nhập tên học sinh hoặc mã HS để tìm..." 
                                                         value={searchTerm} 
                                                         onChange={(e) => setSearchTerm(e.target.value)} 
                                                         className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-rose-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -894,11 +868,11 @@
                                                             <td className="py-3.5 px-4 text-right font-semibold">{formatVND(s.totalFee)}</td>
                                                             <td className="py-3.5 px-4 text-right font-bold text-emerald-600">{formatVND(s.paidFee)}</td>
                                                             <td className="py-3.5 px-4 text-right font-extrabold text-rose-600">{formatVND(s.debtFee)}</td>
-                                                            <td className="py-3.5 px-4 text-center">
-                                                                <button onClick={() => { setSelectedStudentId(s.id); setIsDetailModalOpen(true); }} className="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 font-bold rounded-xl text-xs mr-2 transition">
-                                                                    Chi tiết & Sửa
+                                                            <td className="py-3.5 px-4 text-center space-x-1">
+                                                                <button onClick={() => { setSelectedStudentId(s.id); setIsDetailModalOpen(true); }} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl transition" title="Xem & Thu tiền">
+                                                                    <i className="fa-solid fa-pen-to-square"></i>
                                                                 </button>
-                                                                <button onClick={() => handleDeleteStudent(s.id, s.name)} className="p-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-xl transition" title="Xóa học sinh">
+                                                                <button onClick={() => handleDeleteStudent(s.id, s.name)} className="p-2 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-xl transition" title="Xóa học sinh">
                                                                     <i className="fa-solid fa-trash-can"></i>
                                                                 </button>
                                                             </td>
@@ -919,7 +893,7 @@
                                                 <i className="fa-solid fa-clipboard-user text-red-600"></i>
                                                 <span>Sổ Điểm Danh & Tiến Độ Khóa Học</span>
                                             </h2>
-                                            <p className="text-xs text-slate-500 mt-1">Lớp 12B có 4 buổi, các lớp khác có 8 buổi. Dữ liệu độc lập theo từng khóa.</p>
+                                            <p className="text-xs text-slate-500 mt-1">Lớp 12B có 4 buổi, các lớp khác có 8 buổi. Có thể đổi ngày học cho từng buổi nếu có học bù hoặc thay đổi lịch.</p>
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-2">
@@ -1059,7 +1033,6 @@
                         ) : null}
                     </main>
 
-                    {/* MODAL CHI TIẾT HỌC SINH & CÁC KHÓA (CÓ NÚT SỬA / HOÀN TÁC TRỰC TIẾP) */}
                     {isDetailModalOpen && currentDetailStudent && (
                         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 space-y-4 animate-scaleUp max-h-[90vh] overflow-y-auto">
@@ -1069,53 +1042,49 @@
                                         <h3 className="text-2xl font-bold text-slate-800 mt-1">{currentDetailStudent.name}</h3>
                                         <p className="text-xs text-slate-500">Lớp: {currentDetailStudent.class}</p>
                                     </div>
-                                    <button onClick={() => setIsDetailModalOpen(false)}><i className="fa-solid fa-xmark text-xl text-slate-400 hover:text-slate-700"></i></button>
+                                    <button onClick={() => setIsDetailModalOpen(false)}><i className="fa-solid fa-xmark text-xl"></i></button>
                                 </div>
 
                                 <div className="space-y-4">
-                                    <h4 className="text-xs font-bold uppercase text-slate-600">Danh sách khóa học & Trạng thái thanh toán:</h4>
+                                    <h4 className="text-xs font-bold uppercase text-slate-600">Danh sách các khóa học & Trạng thái thu tiền:</h4>
                                     {currentDetailStudent.courses.map((st, idx) => {
                                         const debt = Math.max(0, (Number(st.totalFee) || 0) - (Number(st.paidFee) || 0));
-                                        const isDone = debt <= 0;
+                                        const isPaid = debt <= 0;
                                         return (
-                                            <div key={idx} className="p-4 bg-slate-50 rounded-2xl border space-y-3">
+                                            <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
                                                 <div className="flex justify-between items-center">
                                                     <div>
                                                         <span className="font-extrabold text-sm text-slate-800">{st.course}</span>
                                                         <p className="text-xs text-slate-500">{st.schedule}</p>
                                                     </div>
-                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${isDone ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                                                        {isDone ? 'Đã hoàn thành' : `Còn nợ: ${formatVND(debt)}`}
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                                                        {isPaid ? 'Đã hoàn thành' : `Còn nợ: ${formatVND(debt)}`}
                                                     </span>
                                                 </div>
 
                                                 <div className="text-xs text-slate-600 bg-white p-3 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                                                     <div>
                                                         <p>Tổng HP: <b>{formatVND(st.totalFee)}</b> | Đã đóng: <b className="text-emerald-600">{formatVND(st.paidFee)}</b></p>
-                                                        {st.payDate && <p className="text-[11px] text-slate-400 mt-1">Giao dịch: {st.payDate} ({st.payMethod || 'Chuyển khoản'})</p>}
+                                                        {st.payDate && <p className="text-[11px] text-slate-400 mt-0.5">Ngày thu: {st.payDate} ({st.payMethod || 'Chuyển khoản'})</p>}
                                                     </div>
-                                                    <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
-                                                        {/* Nút Hoàn tác / Reset về Chưa đóng nếu đã lỡ ấn nhầm */}
-                                                        {st.paidFee > 0 && (
-                                                            <button 
-                                                                onClick={() => handleResetPayment(st)}
-                                                                className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-xl text-xs transition"
-                                                                title="Reset trạng thái về Chưa đóng (0đ)"
-                                                            >
-                                                                <i className="fa-solid fa-rotate-left mr-1"></i> Hoàn tác
+                                                    
+                                                    <div className="flex items-center space-x-2 self-end sm:self-auto">
+                                                        <button onClick={() => { setPayingRecord(st); setPayAmount(st.paidFee || st.totalFee); setIsPayModalOpen(true); }} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center space-x-1">
+                                                            <i className="fa-solid fa-pen"></i>
+                                                            <span>Chỉnh sửa</span>
+                                                        </button>
+
+                                                        {isPaid ? (
+                                                            <button onClick={() => handleResetPaymentToUnpaid(st)} className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-xl text-xs shadow-sm border border-rose-300 flex items-center space-x-1" title="Chuyển về Chưa đóng">
+                                                                <i className="fa-solid fa-rotate-left"></i>
+                                                                <span>Đặt lại: Chưa đóng</span>
+                                                            </button>
+                                                        ) : (
+                                                            <button onClick={() => { setPayingRecord(st); setPayAmount(st.totalFee); setIsPayModalOpen(true); }} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center space-x-1">
+                                                                <i className="fa-solid fa-money-bill-wave"></i>
+                                                                <span>Thu tiền</span>
                                                             </button>
                                                         )}
-                                                        <button 
-                                                            onClick={() => { 
-                                                                setPayingRecord(st); 
-                                                                setPayActionType('add');
-                                                                setPayAmount(debt > 0 ? debt : ''); 
-                                                                setIsPayModalOpen(true); 
-                                                            }} 
-                                                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition"
-                                                        >
-                                                            <i className="fa-solid fa-pen-to-square mr-1"></i> {isDone ? 'Sửa số tiền' : 'Thu tiền'}
-                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1128,96 +1097,52 @@
                                         <i className="fa-solid fa-trash-can"></i>
                                         <span>Xóa học sinh này</span>
                                     </button>
-                                    <button onClick={() => setIsDetailModalOpen(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-2xl text-xs font-bold transition">Đóng</button>
+                                    <button onClick={() => setIsDetailModalOpen(false)} className="px-5 py-2.5 bg-slate-100 rounded-2xl text-xs font-bold">Đóng</button>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* MODAL THU TIỀN & SỬA SỐ TIỀN / RESET */}
                     {isPayModalOpen && payingRecord && (
                         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-scaleUp">
                                 <div className="flex justify-between items-center border-b pb-3">
                                     <div>
-                                        <h3 className="text-lg font-bold text-slate-800">Cập Nhật Học Phí</h3>
-                                        <p className="text-xs text-red-600 font-bold">{payingRecord.name} — {payingRecord.course}</p>
+                                        <h3 className="text-lg font-bold text-slate-800">Cập nhật Thu tiền: {payingRecord.name}</h3>
+                                        <p className="text-xs text-slate-500 font-semibold">Khóa: {payingRecord.course}</p>
                                     </div>
-                                    <button onClick={() => setIsPayModalOpen(false)}><i className="fa-solid fa-xmark text-xl text-slate-400"></i></button>
+                                    <button onClick={() => setIsPayModalOpen(false)}><i className="fa-solid fa-xmark text-xl"></i></button>
                                 </div>
-
-                                <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setPayActionType('add')} 
-                                        className={`flex-1 py-1.5 rounded-lg transition ${payActionType === 'add' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600'}`}
-                                    >
-                                        + Thu thêm vào
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => { setPayActionType('set'); setPayAmount(payingRecord.paidFee || 0); }} 
-                                        className={`flex-1 py-1.5 rounded-lg transition ${payActionType === 'set' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600'}`}
-                                    >
-                                        Sửa tổng số đã đóng
-                                    </button>
-                                </div>
-
                                 <form onSubmit={handleRecordPayment} className="space-y-3 text-sm">
                                     <div>
-                                        <label className="block font-semibold mb-1 text-xs">
-                                            {payActionType === 'add' ? 'Số tiền thu thêm (VNĐ) *' : 'Đặt lại tổng số tiền đã đóng (VNĐ) *'}
-                                        </label>
-                                        <input 
-                                            type="number" 
-                                            value={payAmount} 
-                                            onChange={(e) => setPayAmount(e.target.value)} 
-                                            placeholder="Nhập số tiền (hoặc nhập 0 để hủy đóng)..." 
-                                            className="w-full px-3 py-2 border rounded-xl font-bold text-emerald-600 text-base" 
-                                            required 
-                                        />
-                                        <p className="text-[11px] text-slate-400 mt-1">
-                                            Hiện tại đã đóng: <b>{formatVND(payingRecord.paidFee)}</b> / Tổng HP: <b>{formatVND(payingRecord.totalFee)}</b>
-                                        </p>
+                                        <label className="block font-semibold mb-1">Số tiền đã thu (VNĐ) *</label>
+                                        <p className="text-[11px] text-slate-400 mb-1">Nhập <b>650000</b> để hoàn thành, hoặc <b>0</b> để đổi về Chưa đóng.</p>
+                                        <input type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} placeholder="650000" className="w-full px-3 py-2 border rounded-xl font-bold text-emerald-600 text-base" required />
                                     </div>
-
                                     <div>
-                                        <label className="block font-semibold mb-1 text-xs">Ngày thu/ngày sửa *</label>
-                                        <input type="date" value={payDateInput} onChange={(e) => setPayDateInput(e.target.value)} className="w-full px-3 py-2 border rounded-xl text-xs font-semibold" required />
+                                        <label className="block font-semibold mb-1">Ngày thu</label>
+                                        <input type="date" value={payDateInput} onChange={(e) => setPayDateInput(e.target.value)} className="w-full px-3 py-2 border rounded-xl font-semibold" />
                                     </div>
-
                                     <div>
-                                        <label className="block font-semibold mb-1 text-xs">Phương thức *</label>
-                                        <select value={payMethodSelect} onChange={(e) => setPayMethodSelect(e.target.value)} className="w-full px-3 py-2 border rounded-xl font-semibold text-xs">
+                                        <label className="block font-semibold mb-1">Phương thức thanh toán</label>
+                                        <select value={payMethodSelect} onChange={(e) => setPayMethodSelect(e.target.value)} className="w-full px-3 py-2 border rounded-xl font-semibold">
                                             <option value="Chuyển khoản">Chuyển khoản</option>
                                             <option value="Tiền mặt">Tiền mặt</option>
                                         </select>
                                     </div>
-
                                     <div>
-                                        <label className="block font-semibold mb-1 text-xs">Ghi chú giao dịch</label>
-                                        <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Ghi chú thêm (VD: sửa lại do ấn nhầm)..." className="w-full px-3 py-2 border rounded-xl text-xs" />
+                                        <label className="block font-semibold mb-1">Ghi chú</label>
+                                        <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Ghi chú..." className="w-full px-3 py-2 border rounded-xl" />
                                     </div>
-
-                                    <div className="flex justify-between items-center pt-3 border-t">
-                                        <button 
-                                            type="button" 
-                                            onClick={() => { handleResetPayment(payingRecord); setIsPayModalOpen(false); }}
-                                            className="px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl text-xs font-bold transition"
-                                        >
-                                            Reset Chưa đóng
-                                        </button>
-                                        <div className="flex space-x-2">
-                                            <button type="button" onClick={() => setIsPayModalOpen(false)} className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold">Hủy</button>
-                                            <button type="submit" className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition">Lưu & Sync Sheet</button>
-                                        </div>
+                                    <div className="flex justify-end space-x-2 pt-2">
+                                        <button type="button" onClick={() => setIsPayModalOpen(false)} className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold">Hủy</button>
+                                        <button type="submit" className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-bold text-xs">Lưu Thay Đổi & Sync Sheet</button>
                                     </div>
                                 </form>
                             </div>
                         </div>
                     )}
 
-                    {/* MODAL THÊM HỌC SINH MỚI */}
                     {isAddStudentModalOpen && (
                         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-scaleUp">
@@ -1256,7 +1181,6 @@
                         </div>
                     )}
 
-                    {/* MODAL THÊM KHÓA HỌC MỚI */}
                     {isAddCourseModalOpen && (
                         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-scaleUp">
@@ -1282,7 +1206,6 @@
                         </div>
                     )}
 
-                    {/* MODAL CẤU HÌNH APPS SCRIPT URL */}
                     {isAppsScriptModalOpen && (
                         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4">
@@ -1296,7 +1219,6 @@
                         </div>
                     )}
 
-                    {/* MODAL ĐĂNG NHẬP GIÁO VIÊN */}
                     {isLoginModalOpen && (
                         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 text-center">
@@ -1313,7 +1235,6 @@
                         </div>
                     )}
 
-                    {/* MODAL ĐĂNG NHẬP ADMIN */}
                     {isAdminLoginModalOpen && (
                         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 text-center">

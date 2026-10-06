@@ -331,48 +331,37 @@
                 return attendanceClassFilter === '12B' ? 4 : 8;
             }, [attendanceClassFilter]);
 
-            const courseProgressSummary = useMemo(() => {
-                if (!selectedCourseForAttendance) return { present: 0, excused: 0, absent: 0, totalSlots: 0, percent: 0, avgScore: 0 };
+            // THỐNG KÊ ĐIỂM DANH RIÊNG CHO BUỔI ĐANG CHỌN
+            const sessionSummary = useMemo(() => {
+                if (!selectedCourseForAttendance) return { present: 0, excused: 0, absent: 0, unrecorded: 0, total: 0, avgScore: 'N/A' };
                 
                 const courseSts = students.filter(st => st.course === selectedCourseForAttendance);
-                let totalPresent = 0, totalExcused = 0, totalAbsent = 0, scoreSum = 0, scoreCount = 0;
-                let totalPossibleSlots = courseSts.length * maxSessionsCount;
+                const totalSts = courseSts.length;
+                let present = 0, excused = 0, absent = 0, unrecorded = 0;
+                let scoreSum = 0, scoreCount = 0;
 
                 courseSts.forEach(st => {
-                    for (let s = 1; s <= maxSessionsCount; s++) {
-                        const key = `${st.id}_${selectedCourseForAttendance}_Buổi_${s}`;
-                        const rec = attendanceRecords[key];
-                        if (rec) {
-                            if (rec.status === 'P') totalPresent++;
-                            else if (rec.status === 'E') totalExcused++;
-                            else if (rec.status === 'A') totalAbsent++;
+                    const key = `${st.id}_${selectedCourseForAttendance}_Buổi_${attendanceSession}`;
+                    const rec = attendanceRecords[key];
+                    if (rec) {
+                        if (rec.status === 'P') present++;
+                        else if (rec.status === 'E') excused++;
+                        else if (rec.status === 'A') absent++;
+                        else unrecorded++;
 
-                            if (rec.score && !isNaN(rec.score)) {
-                                scoreSum += parseFloat(rec.score);
-                                scoreCount++;
-                            }
+                        if (rec.score && !isNaN(rec.score)) {
+                            scoreSum += parseFloat(rec.score);
+                            scoreCount++;
                         }
+                    } else {
+                        unrecorded++;
                     }
                 });
 
-                const recordedCount = totalPresent + totalExcused + totalAbsent;
-                const percent = totalPossibleSlots > 0 ? Math.round((recordedCount / totalPossibleSlots) * 100) : 0;
                 const avgScore = scoreCount > 0 ? (scoreSum / scoreCount).toFixed(1) : 'N/A';
 
-                return { present: totalPresent, excused: totalExcused, absent: totalAbsent, totalSlots: totalPossibleSlots, percent, avgScore };
-            }, [students, attendanceRecords, selectedCourseForAttendance, maxSessionsCount]);
-
-            const currentCourseScheduleObj = useMemo(() => {
-                const sample = students.find(st => st.course === selectedCourseForAttendance);
-                if (!sample || !sample.schedule) return { startDate: '2026-08-16' };
-                const parts = sample.schedule.split(' - ');
-                if (parts.length >= 2) {
-                    const startRaw = parts[0].trim();
-                    const [d, m, y] = startRaw.split('/');
-                    return { startDate: `${y}-${m}-${d}` };
-                }
-                return { startDate: '2026-08-16' };
-            }, [students, selectedCourseForAttendance]);
+                return { present, excused, absent, unrecorded, total: totalSts, avgScore };
+            }, [students, attendanceRecords, selectedCourseForAttendance, attendanceSession]);
 
             const getSessionDate = (courseName, sessionNum) => {
                 const targetCourse = courseName || selectedCourseForAttendance;
@@ -1020,21 +1009,21 @@
                                         </div>
                                     </div>
 
-                                    <div className="bg-slate-50 p-4 rounded-2xl border border-rose-100 space-y-3">
-                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                                            <div>
-                                                <h4 className="text-xs font-extrabold uppercase text-slate-700">Tổng Kết Khóa: <span className="text-red-600">{selectedCourseForAttendance}</span></h4>
-                                                <p className="text-[11px] text-slate-500">
-                                                    Có mặt: <b className="text-emerald-600">{courseProgressSummary.present}</b> | 
-                                                    Có phép: <b className="text-amber-600">{courseProgressSummary.excused}</b> | 
-                                                    Vắng: <b className="text-rose-600">{courseProgressSummary.absent}</b> | 
-                                                    Điểm Test TB: <b className="text-blue-600">{courseProgressSummary.avgScore}</b>
-                                                </p>
-                                            </div>
-                                            <span className="text-xs font-extrabold text-red-700 bg-red-100 px-3 py-1 rounded-xl">Tiến độ điểm danh: {courseProgressSummary.percent}%</span>
+                                    {/* THỐNG KÊ ĐIỂM DANH RIÊNG CHO BUỔI ĐANG CHỌN */}
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-rose-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                        <div>
+                                            <h4 className="text-xs font-extrabold uppercase text-slate-700">
+                                                Thống kê <span className="text-red-600">Buổi {attendanceSession}</span> ({selectedCourseForAttendance}):
+                                            </h4>
+                                            <p className="text-xs text-slate-600 mt-1">
+                                                Đi học: <b className="text-emerald-600">{sessionSummary.present}/{sessionSummary.total}</b> em | 
+                                                Có phép: <b className="text-amber-600">{sessionSummary.excused}</b> em | 
+                                                Vắng: <b className="text-rose-600">{sessionSummary.absent}</b> em
+                                                {sessionSummary.unrecorded > 0 && <span className="text-slate-400 font-medium"> | Chưa điểm danh: {sessionSummary.unrecorded} em</span>}
+                                            </p>
                                         </div>
-                                        <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                                            <div className="bg-gradient-to-r from-red-500 to-emerald-500 h-3 rounded-full transition-all duration-500" style={{ width: `${courseProgressSummary.percent}%` }}></div>
+                                        <div className="bg-white px-3 py-1.5 rounded-xl border border-rose-100 shadow-sm text-xs text-slate-700 shrink-0">
+                                            Điểm Test TB: <b className="text-blue-600 font-extrabold">{sessionSummary.avgScore}</b>
                                         </div>
                                     </div>
 
